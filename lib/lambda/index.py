@@ -3,9 +3,15 @@ import os
 import json
 import time
 import urllib3
+import quip
+
 http = urllib3.PoolManager()
 
 TRANSCRIPTS_OUTPUT_PREFIX = 'transcripts/'
+QUIP_ACCESS_TOKEN = "<QUIP_ACCESS_TOKEN>"
+QUIP_THREAD_ID = 'bF6SAbJagSMg'
+QUIP_ENDPOINT = 'https://platform.quip-amazon.com'
+SLACK_WEBHOOK_URL = "<SLACK_WEBHOOK_URL>"
 
 region = os.environ.get('AWS_REGION')
 recording_bucket = os.environ.get('RecordingStorageBucketName')
@@ -25,6 +31,7 @@ def lambda_handler(event, context):
         transcript = extract_transcript(uri)
         response_body = invoke_model(transcript)
         send_slack_notification(response_body['content'][0]['text'])
+        write_to_quip(response_body['content'][0]['text'])
 
 def extract_transcript(uri):
     job_name = f"transcription_{int(time.time())}"
@@ -73,7 +80,6 @@ def invoke_model(transcript):
 
 def send_slack_notification(content):
     print("sending to slack channel ...")
-    url = "https://hooks.slack.com/workflows/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"
     msg = {
         "text": "this is to slack channel",
         "content": content
@@ -81,9 +87,17 @@ def send_slack_notification(content):
     headers = {"Content-type": "application/json"}
 
     encoded_msg = json.dumps(msg).encode('utf-8')
-    resp = http.request('POST',url, body=encoded_msg, headers=headers)
+    resp = http.request('POST',SLACK_WEBHOOK_URL, body=encoded_msg, headers=headers)
     print({
         "message": content,
         "status_code": resp.status,
         "response": resp.data
     })
+
+def write_to_quip(content):
+    print("writing the summary report to quip document ...")
+    quip_client = quip.QuipClient(access_token=QUIP_ACCESS_TOKEN, base_url=QUIP_ENDPOINT)
+    responses = content.split("\n")
+    for response in responses:
+        quip_client.edit_document(QUIP_THREAD_ID,  content="<br>", operation="APPEND", format="html")
+        quip_client.edit_document(QUIP_THREAD_ID,"<p>" + response + "</p>", operation="APPEND", format="html")
