@@ -33,7 +33,7 @@ export class HelloCdkStack extends cdk.Stack {
         new PolicyStatement({
           effect: Effect.ALLOW,
           actions: [
-            "s3:*",
+            "s3:GetObject",
           ],
           resources: [
             `${s3Bucket.bucketArn}/*`,
@@ -44,7 +44,8 @@ export class HelloCdkStack extends cdk.Stack {
           sid: "TranscribeAccess",
           effect: Effect.ALLOW,
           actions: [
-            'transcribe:*',
+            'transcribe:StartTranscriptionJob',
+            'transcribe:GetTranscriptionJob',
           ],
           resources: ["*"]
         }),
@@ -52,7 +53,7 @@ export class HelloCdkStack extends cdk.Stack {
           sid: "BedrockAccess",
           effect: Effect.ALLOW,
           actions: [
-            'bedrock:*',
+            'bedrock:InvokeModel',
           ],
           resources: ["*"]
         })
@@ -72,6 +73,8 @@ export class HelloCdkStack extends cdk.Stack {
       logRetention: RetentionDays.ONE_MONTH,
     });
     recordingProcessLambda.node.addDependency(lambdaRole);
+    //grant write permission on the bucket
+    s3Bucket.grantWrite(recordingProcessLambda);
 
     // add notification invocation
     s3Bucket.addEventNotification(
